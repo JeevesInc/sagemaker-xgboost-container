@@ -72,7 +72,15 @@ TOP_LEVEL_OUT_KEY = "predictions"
 SCORE_OUT_KEY = "score"
 
 # all supported selecable content keys
-ALL_VALID_SELECT_KEYS = [PREDICTED_LABEL, LABELS, PROBABILITY, PROBABILITIES, RAW_SCORE, RAW_SCORES, PREDICTED_SCORE]
+ALL_VALID_SELECT_KEYS = [
+    PREDICTED_LABEL,
+    LABELS,
+    PROBABILITY,
+    PROBABILITIES,
+    RAW_SCORE,
+    RAW_SCORES,
+    PREDICTED_SCORE,
+]
 
 # mapping of xgboost objective functions to valid selectable inference content
 VALID_OBJECTIVES = {
@@ -81,11 +89,25 @@ VALID_OBJECTIVES = {
     REG_GAMMA: [PREDICTED_SCORE],
     REG_ABSOLUTEERR: [PREDICTED_SCORE],
     REG_TWEEDIE: [PREDICTED_SCORE],
-    BINARY_LOG: [PREDICTED_LABEL, LABELS, PROBABILITY, PROBABILITIES, RAW_SCORE, RAW_SCORES],
+    BINARY_LOG: [
+        PREDICTED_LABEL,
+        LABELS,
+        PROBABILITY,
+        PROBABILITIES,
+        RAW_SCORE,
+        RAW_SCORES,
+    ],
     BINARY_LOGRAW: [PREDICTED_LABEL, LABELS, RAW_SCORE, RAW_SCORES],
     BINARY_HINGE: [PREDICTED_LABEL, LABELS, RAW_SCORE, RAW_SCORES],
     MULTI_SOFTMAX: [PREDICTED_LABEL, LABELS, RAW_SCORE, RAW_SCORES],
-    MULTI_SOFTPROB: [PREDICTED_LABEL, LABELS, PROBABILITY, PROBABILITIES, RAW_SCORE, RAW_SCORES],
+    MULTI_SOFTPROB: [
+        PREDICTED_LABEL,
+        LABELS,
+        PROBABILITY,
+        PROBABILITIES,
+        RAW_SCORE,
+        RAW_SCORES,
+    ],
 }
 
 
@@ -147,7 +169,9 @@ def parse_content_data(input_data, input_content_type):
                 "recordio-protobuf format: {} {}".format(type(e), e)
             )
     else:
-        raise RuntimeError("Content-type {} is not supported.".format(input_content_type))
+        raise RuntimeError(
+            "Content-type {} is not supported.".format(input_content_type)
+        )
 
     return dtest, content_type
 
@@ -191,20 +215,32 @@ def get_loaded_booster(model_dir, ensemble=False):
         models.append(booster)
         model_formats.append(model_format)
 
-    return (models, model_formats) if ensemble and len(models) > 1 else (models[0], model_formats[0])
+    return (
+        (models, model_formats)
+        if ensemble and len(models) > 1
+        else (models[0], model_formats[0])
+    )
 
 
 def predict(model, model_format, dtest, input_content_type, objective=None):
-    bst, bst_format = (model[0], model_format[0]) if type(model) is list else (model, model_format)
+    bst, bst_format = (
+        (model[0], model_format[0]) if type(model) is list else (model, model_format)
+    )
 
     if bst_format == PKL_FORMAT:
         x = bst.num_features()
-        y = len(dtest.feature_names) if dtest.feature_names is not None else dtest.num_col()
+        y = (
+            len(dtest.feature_names)
+            if dtest.feature_names is not None
+            else dtest.num_col()
+        )
 
         try:
             content_type = get_content_type(input_content_type)
         except Exception:
-            raise ValueError("Content type {} is not supported".format(input_content_type))
+            raise ValueError(
+                "Content type {} is not supported".format(input_content_type)
+            )
 
         if content_type == LIBSVM:
             if y > x + 1:
@@ -223,18 +259,24 @@ def predict(model, model_format, dtest, input_content_type, objective=None):
 
     if isinstance(model, list):
         ensemble = [
-            booster.predict(dtest, ntree_limit=getattr(booster, "best_ntree_limit", 0), validate_features=False)
-            for booster in model
+            booster.predict(dtest, validate_features=False) for booster in model
         ]
 
         if objective in [MULTI_SOFTMAX, BINARY_HINGE]:
-            logging.info(f"Vote ensemble prediction of {objective} with {len(model)} models")
+            logging.info(
+                f"Vote ensemble prediction of {objective} with {len(model)} models"
+            )
             return stats.mode(ensemble).mode[0]
         else:
-            logging.info(f"Average ensemble prediction of {objective} with {len(model)} models")
+            logging.info(
+                f"Average ensemble prediction of {objective} with {len(model)} models"
+            )
             return np.mean(ensemble, axis=0)
     else:
-        return model.predict(dtest, ntree_limit=getattr(model, "best_ntree_limit", 0), validate_features=False)
+        return model.predict(
+            dtest,
+            validate_features=False,
+        )
 
 
 def is_selectable_inference_output():
@@ -389,7 +431,11 @@ def get_selected_predictions(raw_predictions, selected_keys, objective, num_clas
     :return: selected prediction (list of dict)
     """
     if objective not in VALID_OBJECTIVES:
-        raise ValueError("Objective `{}` unsupported for selectable inference predictions.".format(objective))
+        raise ValueError(
+            "Objective `{}` unsupported for selectable inference predictions.".format(
+                objective
+            )
+        )
 
     valid_selected_keys = set(selected_keys).intersection(VALID_OBJECTIVES[objective])
     invalid_selected_keys = set(selected_keys).difference(VALID_OBJECTIVES[objective])
@@ -452,7 +498,9 @@ def _encode_selected_predictions_csv(predictions, ordered_keys_list):
                 values.append(value)
             yield ",".join(values)
 
-    return "\n".join(_generate_single_csv_line_selected_prediction(predictions, ordered_keys_list))
+    return "\n".join(
+        _generate_single_csv_line_selected_prediction(predictions, ordered_keys_list)
+    )
 
 
 def _write_record(record, key, value):
@@ -501,11 +549,15 @@ def encode_selected_predictions(predictions, selected_content_keys, accept):
     if accept == "application/x-recordio-protobuf":
         return _encode_selected_predictions_recordio_protobuf(predictions)
     if accept == "text/csv":
-        csv_response = _encode_selected_predictions_csv(predictions, selected_content_keys)
+        csv_response = _encode_selected_predictions_csv(
+            predictions, selected_content_keys
+        )
         if SAGEMAKER_BATCH:
             return csv_response + "\n"
         return csv_response
-    raise RuntimeError("Cannot encode selected predictions into accept type '{}'.".format(accept))
+    raise RuntimeError(
+        "Cannot encode selected predictions into accept type '{}'.".format(accept)
+    )
 
 
 def encode_predictions_as_json(predictions):
